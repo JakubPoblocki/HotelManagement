@@ -34,8 +34,9 @@ env/
 # Static files
 staticfiles/
 
-# db
+# Database
 db.sqlite3
 
+# Migrations
 */migrations/*
 !*/migrations/__init__.py

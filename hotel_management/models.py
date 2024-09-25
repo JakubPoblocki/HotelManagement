@@ -9,6 +9,8 @@ from rest_framework.exceptions import ValidationError
 
 from dicts.models import BaseModel
 from dicts.validators import validate_phone_number
+from hotel_management.consts import RESERVATION_STATUSES, RESERVATION_STATUS_PENDING, ROOM_TYPES
+from hotel_management.managers import ReservationManager
 from users.models import ClientProfile, ManagerProfile
 
 
@@ -55,18 +57,9 @@ class Hotel(BaseModel):
         verbose_name = _("Hotel")
         verbose_name_plural = _("Hotele")
         db_table = "hotels"
-        # permissions = [()]
 
 
 class Room(BaseModel):
-    ROOM_TYPES = [
-        ('single', _('Single')),
-        ('double', _('Double')),
-        ('suite', _('Suite')),
-        ('deluxe', _('Deluxe')),
-        ('family', _('Family')),
-    ]
-
     hotel = models.ForeignKey(
         Hotel,
         on_delete=models.CASCADE,
@@ -146,12 +139,6 @@ class Reservation(BaseModel):
         validators=[MinValueValidator(1), MaxValueValidator(10)],
         verbose_name=_("Liczba gości"), help_text=_("Liczba gości na rezerwacji")
     )
-    RESERVATION_STATUSES = [
-        ('pending', 'Pending'),
-        ('confirmed', 'Confirmed'),
-        ('canceled', 'Canceled'),
-        ('completed', 'Completed'),
-    ]
     reservation_status = models.CharField(
         max_length=20,
         choices=RESERVATION_STATUSES,
@@ -167,6 +154,8 @@ class Reservation(BaseModel):
         default=True,
         verbose_name=_("Czy aktywna rezerwacja"), help_text=_("Czy aktywna rezerwacja")
     )
+
+    objects = ReservationManager()
 
     def __str__(self):
         return f'Reservation {self.guest} - {self.room}'
@@ -193,6 +182,7 @@ class Reservation(BaseModel):
             # check availability of the room in the given date range
             if not cleaned_data.room.is_available_in_range(check_in_date, check_out_date):
                 raise ValidationError(_("Room is not available at given date range"))
+
 
     class Meta:
         ordering = ["-check_in_date", "-check_out_date"]

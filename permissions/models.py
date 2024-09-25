@@ -6,10 +6,10 @@ from permissions.managers import ActivePermissionsManager
 
 
 class CustomPermission(models.Model):
-    name = models.CharField(
+    code = models.CharField(
         max_length=128,
         unique=True,
-        verbose_name=_("Nazwa uprawnienia"), help_text=_("Nazwa uprawnienia"))
+        verbose_name=_("Kod uprawnienia"), help_text=_("Kod uprawnienia"))
     can_view = models.BooleanField(
         default=False,
         verbose_name=_("Czy ma dostęp do READ"), help_text=_("Czy ma dostęp do READ")
@@ -39,15 +39,19 @@ class CustomPermission(models.Model):
             string += "D"
         return string
 
+    # @classmethod
+    # def check_permission(cls, permission_code, action):
+    #     return cls.active_objects.filter(code=permission_code, action=action).exists()
+
     @classmethod
     def get_active_item_by_name(cls, name):
         return cls.active_objects.filter(name=name)
 
     def __str__(self):
-        return f"CustomPermission {self.name}"
+        return f"CustomPermission {self.code}"
 
     def __repr__(self):
-        return f"<CustomPermission(pk={self.pk}, name={self.name}, perms={self.perms_to_str})>"
+        return f"<CustomPermission(pk={self.pk}, code={self.code}, perms={self.perms_to_str})>"
 
     class Meta:
         ordering = ["-created_at"]

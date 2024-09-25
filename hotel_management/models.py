@@ -222,3 +222,4 @@ class HotelManagerAssignment(BaseModel):
         verbose_name = _("Przypisanie menadżera do hotelu")
         verbose_name_plural = _("Przypisania menadżerów do hoteli")
         unique_together = ('manager', 'hotel')
+        db_table = "hotel_to_manager"

@@ -3,6 +3,7 @@ from django.core.validators import validate_email
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from permissions.models import CustomPermission
 from .managers import CustomUserManager
 from dicts.models import BaseModel
 from dicts.validators import validate_only_alphabetic
@@ -29,6 +30,11 @@ class CustomUser(AbstractBaseUser, BaseModel):
         default=False,
         verbose_name=_("Czy dostęp do admina"), help_text=_("Czy użytkownik ma dostęp do admina")
     )
+    permissions = models.ForeignKey(
+        CustomPermission,
+        on_delete=models.PROTECT,
+        related_name="users",
+        verbose_name=_("Uprawnienia"), help_text=_("Uprawnienia"))
 
     objects = CustomUserManager()
 

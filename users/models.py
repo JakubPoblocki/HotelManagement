@@ -30,11 +30,10 @@ class CustomUser(AbstractBaseUser, BaseModel):
         default=False,
         verbose_name=_("Czy dostęp do admina"), help_text=_("Czy użytkownik ma dostęp do admina")
     )
-    permissions = models.ForeignKey(
-        CustomPermission,
-        on_delete=models.PROTECT,
-        related_name="users",
-        verbose_name=_("Uprawnienia"), help_text=_("Uprawnienia"))
+    is_superuser = models.BooleanField(
+        default=False,
+        verbose_name=_("Czy super użytkownik"), help_text=_("Czy super użytkownik")
+    )
 
     objects = CustomUserManager()
 
@@ -65,6 +64,13 @@ class CustomUser(AbstractBaseUser, BaseModel):
 
 
 class ClientProfile(CustomUser):
+    permissions = models.ForeignKey(
+        CustomPermission,
+        on_delete=models.PROTECT,
+        null=True,
+        related_name="client_profiles",
+        verbose_name=_("Uprawnienia"), help_text=_("Uprawnienia"))
+
     def __str__(self):
         return f"Client: {self.first_name} {self.last_name}"
 
@@ -78,6 +84,13 @@ class ClientProfile(CustomUser):
 
 
 class ManagerProfile(CustomUser):
+    permissions = models.ForeignKey(
+        CustomPermission,
+        on_delete=models.PROTECT,
+        null=True,
+        related_name="manager_profiles",
+        verbose_name=_("Uprawnienia"), help_text=_("Uprawnienia"))
+
     def __str__(self):
         return f"Manager: {self.first_name} {self.last_name}"
 
@@ -91,6 +104,13 @@ class ManagerProfile(CustomUser):
 
 
 class AdminProfile(CustomUser):
+    permissions = models.ForeignKey(
+        CustomPermission,
+        on_delete=models.PROTECT,
+        null=True,
+        related_name="admin_profiles",
+        verbose_name=_("Uprawnienia"), help_text=_("Uprawnienia"))
+
     def __str__(self):
         return f"Admin: {self.first_name} {self.last_name}"
 

@@ -2,10 +2,11 @@ from django.db import models
 
 from django.utils.translation import gettext_lazy as _
 
+from dicts.models import BaseModel
 from permissions.managers import ActivePermissionsManager
 
 
-class CustomPermission(models.Model):
+class CustomPermission(BaseModel):
     code = models.CharField(
         max_length=128,
         unique=True,
@@ -51,7 +52,7 @@ class CustomPermission(models.Model):
         return f"CustomPermission {self.code}"
 
     def __repr__(self):
-        return f"<CustomPermission(pk={self.pk}, code={self.code}, perms={self.perms_to_str})>"
+        return f"<CustomPermission(pk={self.pk}, code={self.code})>"
 
     class Meta:
         ordering = ["-created_at"]

@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     # my installed apps
     'users',
     'hotel_management',
+    'permissions',
 
     # custom installed apps
     'rest_framework_swagger',

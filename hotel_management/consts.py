@@ -3,15 +3,22 @@ from django.utils.translation import gettext_lazy as _
 
 RESERVATION_STATUS_PENDING = 'pending'
 RESERVATION_STATUS_CONFIRMED = 'confirmed'
-RESERVATION_STATUS_CANCELED = 'canceled'
+RESERVATION_STATUS_CANCELED = 'cancelled'
 RESERVATION_STATUS_COMPLETED = 'completed'
 
 RESERVATION_STATUSES = [
     (RESERVATION_STATUS_PENDING, _('Pending')),
     (RESERVATION_STATUS_CONFIRMED, _('Confirmed')),
-    (RESERVATION_STATUS_CANCELED, _('Canceled')),
+    (RESERVATION_STATUS_CANCELED, _('Cancelled')),
     (RESERVATION_STATUS_COMPLETED, _('Completed')),
 ]
+
+STATUS_TRANSITIONS = {
+    'pending': ['confirmed', 'cancelled'],
+    'confirmed': ['completed', 'cancelled'],
+    'cancelled': [],
+    'completed': [],
+}
 
 ROOM_TYPE_SINGLE = 'single'
 ROOM_TYPE_DOUBLE = 'double'

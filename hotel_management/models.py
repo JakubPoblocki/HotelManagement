@@ -2,19 +2,21 @@ from django.utils import timezone
 
 from django.core.validators import validate_email, MinValueValidator, MaxValueValidator
 from django.db import models
-from django.db.models import Q, UniqueConstraint
 
 from django.utils.translation import gettext_lazy as _
-from rest_framework.exceptions import ValidationError
+from django.core.exceptions import ValidationError
 
 from dicts.models import BaseModel
 from dicts.validators import validate_phone_number
-from hotel_management.consts import RESERVATION_STATUSES, RESERVATION_STATUS_PENDING, ROOM_TYPES
+from hotel_management.consts import RESERVATION_STATUSES, ROOM_TYPES
 from hotel_management.managers import ReservationManager
 from users.models import ClientProfile, ManagerProfile
 
 
 class Hotel(BaseModel):
+    """
+    Hotel object representation
+    """
     rating = models.PositiveSmallIntegerField(
         default=1,
         validators=[MinValueValidator(1), MaxValueValidator(5)],
@@ -60,6 +62,9 @@ class Hotel(BaseModel):
 
 
 class Room(BaseModel):
+    """
+    Room object representation
+    """
     hotel = models.ForeignKey(
         Hotel,
         on_delete=models.CASCADE,
@@ -99,7 +104,9 @@ class Room(BaseModel):
         """
         returns bool response depending on availability of the room at the given time period
         """
-        return not self.reservations.filter(check_in_date__lte=end_date, check_out_date__gte=start_date).exists()
+        return not self.reservations.filter(
+            check_in_date__lte=end_date, check_out_date__gte=start_date
+        ).exclude(pk=self.pk).exists()
 
     def __str__(self):
         return f'Room: ({self.room_number}) - {self.room_type}'
@@ -116,6 +123,9 @@ class Room(BaseModel):
 
 
 class Reservation(BaseModel):
+    """
+    Reservation object representation
+    """
     room = models.ForeignKey(
         Room,
         on_delete=models.PROTECT,
@@ -164,24 +174,28 @@ class Reservation(BaseModel):
         return f"<Reservation(id={self.id}, room={self.room.room_type}, guest={self.guest.full_name})>"
 
     def clean(self):
-        cleaned_data = super().clean()
-        check_in_date = cleaned_data.get("check_in_date")
-        check_out_date = cleaned_data.get("check_out_date")
+        actual_date = timezone.now().date()
+        print(f'self.check_in_date: {self.check_in_date}, self.check_out_date: {self.check_out_date}, self.room: {self.room}')
 
-        if check_in_date and check_out_date:
-            actual_date = timezone.now().date()
+        # check if all required fields are set
+        if not self.check_in_date or not self.check_out_date or not self.room:
+            raise ValidationError(_("All fields are required."))
 
-            # check that check-in and check-out dates are not in the past
-            if check_in_date < actual_date or check_out_date < actual_date:
-                raise ValidationError(_("Provided check-in and check-out dates cannot be in the past"))
+        # check if room is available
+        if not hasattr(self.room, "is_available") or not self.room.is_available:
+            raise ValidationError({"room": _("Room is not available")})
 
-            # check that check-out date is greater than check-in date
-            if check_in_date >= check_in_date:
-                raise ValidationError(_("Check-in date cannot be greater or equal to check-out date"))
+        # check that check-in and check-out dates are not in the past
+        if self.check_in_date < actual_date or self.check_out_date < actual_date:
+            raise ValidationError(_("The check-in and check-out dates cannot be in the past."))
 
-            # check availability of the room in the given date range
-            if not cleaned_data.room.is_available_in_range(check_in_date, check_out_date):
-                raise ValidationError(_("Room is not available at given date range"))
+        # check that check-out date is greater than check-in date
+        if not self.check_out_date >= self.check_in_date:
+            raise ValidationError({"check_in_date": _("Check-in date cannot be greater or equal to check-out date")})
+
+        # check availability of the room in the given date range
+        if not self.room.is_available_in_range(self.check_in_date, self.check_out_date):
+            raise ValidationError(_("The room is not available for the selected date range."))
 
 
     class Meta:
@@ -190,15 +204,12 @@ class Reservation(BaseModel):
         verbose_name = _("Rezerwacja")
         verbose_name_plural = _("Rezerwacje")
         db_table = "reservations"
-        constraints = [
-            UniqueConstraint(
-                fields=['room'],
-                condition=Q(room__is_available=True),
-                name='unique_active_reservation_per_room'
-            )
-        ]
+
 
 class HotelManagerAssignment(BaseModel):
+    """
+    Hotel-Manager assignment object
+    """
     manager = models.ForeignKey(
         ManagerProfile,
         on_delete=models.CASCADE,
@@ -209,6 +220,9 @@ class HotelManagerAssignment(BaseModel):
         on_delete=models.CASCADE,
         related_name="managers",
         verbose_name=_("Hotel"), help_text=_("Hotel podlegający pod menadżera"))
+
+    def clean(self):
+        cleaned_data = super().clean()
 
     def __str__(self):
         return f"HotelManagerRelation {self.manager} -> {self.hotel}"

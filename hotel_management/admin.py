@@ -2,10 +2,12 @@ from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
 
-from hotel_management.models import Hotel, Room, Reservation
+from hotel_management.models import Hotel, Room, Reservation, HotelManagerAssignment
 
 
-# Register your models here.
+@admin.register(HotelManagerAssignment)
+class HotelManagerAssignmentAdmin(admin.ModelAdmin):
+    list_display = ('manager', 'hotel')
 
 @admin.register(Hotel)
 class HotelAdmin(admin.ModelAdmin):
@@ -19,10 +21,11 @@ class HotelAdmin(admin.ModelAdmin):
     )
     empty_value_display = "-empty-"
 
+
 @admin.register(Room)
 class RoomAdmin(admin.ModelAdmin):
-    list_display = ["pk", "hotel_name", "room_number", "room_type", "price_per_night", "is_available"]
-    list_display_links = ["pk", ]
+    list_display = ["pk", "hotel_name_link", "room_number", "room_type", "price_per_night", "is_available"]
+    list_display_links = ["pk", "hotel_name_link"]
     list_select_related = ('hotel',)
     list_filter = ["hotel", "room_type", "bed_count", "capacity"]
     fieldsets = (
@@ -35,6 +38,12 @@ class RoomAdmin(admin.ModelAdmin):
     @admin.display(description='Hotel')
     def hotel_name(self, obj):
         return obj.hotel.name
+
+    @admin.display(description="Nazwa hotelu")
+    def hotel_name_link(self, obj):
+        return format_html('<a href="{}">{}</a>',
+                           reverse('admin:hotel_management_hotel_change', args=[obj.hotel.pk]),
+                           obj.hotel.name)
 
 
 @admin.register(Reservation)
@@ -65,3 +74,4 @@ class ReservationAdmin(admin.ModelAdmin):
     @admin.display(description='Imię i nazwisko gościa')
     def guest_full_name(self, obj):
         return f'{obj.guest.first_name} {obj.guest.last_name}'
+

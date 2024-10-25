@@ -14,21 +14,18 @@ class ManagerReservationsListView(generics.ListAPIView):
     serializer_class = ReservationSerializer
     permission_classes = [IsAuthenticated]
 
-    # @required_permission('HMAN_RES', 'READ')
+    @required_permission('HMAN_RES', 'READ')
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
 
     def get_queryset(self):
-        user = ''
-        # user = self.request.user
-        if not user:
-            user = ManagerProfile.objects.get(pk=1)
-        if not isinstance(user, ManagerProfile):
-            raise ValueError(_("ERROR_WRONG_USER_PERMISSIONS"))
+        user = self.request.user
 
         managed_hotels = user.managed_hotels.all().values_list('hotel', flat=True)
+
+        # return no reservations if no hotels are managed
         if not managed_hotels:
-            return Reservation.objects.all()
+            return Reservation.objects.none()
 
         return Reservation.objects.filter(room__hotel__in=managed_hotels)
 
@@ -36,6 +33,7 @@ class ManagerReservationsListView(generics.ListAPIView):
 class ReservationUpdateView(generics.UpdateAPIView):
     serializer_class = ReservationUpdateSerializer
     permission_classes = [IsAuthenticated]
+    queryset = Reservation.objects.all()
 
     def get_object(self):
         return Reservation.objects.get(pk=self.kwargs['pk'])

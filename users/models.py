@@ -1,6 +1,8 @@
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
+from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import models
+from django.db.models import UniqueConstraint
 from django.utils.translation import gettext_lazy as _
 
 from permissions.models import CustomPermission
@@ -43,6 +45,18 @@ class CustomUser(AbstractBaseUser, BaseModel):
     groups = []
 
     @property
+    def is_client(self):
+        return hasattr(self, "clientprofile")
+
+    @property
+    def is_manager(self):
+        return hasattr(self, "managerprofile")
+
+    @property
+    def is_admin(self):
+        return hasattr(self, "adminprofile")
+
+    @property
     def full_name(self):
         return f"{self.first_name} {self.last_name}"
 
@@ -59,23 +73,28 @@ class CustomUser(AbstractBaseUser, BaseModel):
         """
         return True
 
+
+class BaseProfile(BaseModel):
+    user = models.OneToOneField(
+        CustomUser,
+        on_delete=models.PROTECT,
+        related_name="%(class)s",
+        verbose_name=_("Użytkownik"),
+        help_text=_("Użytkownik")
+    )
+
     class Meta:
         abstract = True
 
 
-class ClientProfile(CustomUser):
-    permissions = models.ForeignKey(
-        CustomPermission,
-        on_delete=models.PROTECT,
-        null=True,
-        related_name="client_profiles",
-        verbose_name=_("Uprawnienia"), help_text=_("Uprawnienia"))
-
+class ClientProfile(BaseProfile):
     def __str__(self):
-        return f"Client: {self.first_name} {self.last_name}"
+        return f"Client: {self.user}"
 
-    def __repr__(self):
-        return f'<ClientProfile(id={self.id}, first_name={self.full_name}, is_active={self.is_active})>'
+    def save(self, *args, **kwargs):
+        if ManagerProfile.objects.filter(user=self.user).exists() or AdminProfile.objects.filter(user=self.user).exists():
+            raise ValidationError(_("Użytkownik może mieć tylko jeden profil (klient, menedżer lub administrator)."))
+        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = _("Klient")
@@ -83,19 +102,14 @@ class ClientProfile(CustomUser):
         db_table = "clients"
 
 
-class ManagerProfile(CustomUser):
-    permissions = models.ForeignKey(
-        CustomPermission,
-        on_delete=models.PROTECT,
-        null=True,
-        related_name="manager_profiles",
-        verbose_name=_("Uprawnienia"), help_text=_("Uprawnienia"))
-
+class ManagerProfile(BaseProfile):
     def __str__(self):
-        return f"Manager: {self.first_name} {self.last_name}"
+        return f"Manager: {self.user}"
 
-    def __repr__(self):
-        return f'<ManagerProfile(id={self.id}, full_name={self.full_name}, is_active={self.is_active})>'
+    def save(self, *args, **kwargs):
+        if ClientProfile.objects.filter(user=self.user).exists() or AdminProfile.objects.filter(user=self.user).exists():
+            raise ValidationError(_("Użytkownik może mieć tylko jeden profil (klient, menedżer lub administrator)."))
+        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = _("Menadżer")
@@ -103,21 +117,48 @@ class ManagerProfile(CustomUser):
         db_table = "managers"
 
 
-class AdminProfile(CustomUser):
-    permissions = models.ForeignKey(
-        CustomPermission,
-        on_delete=models.PROTECT,
-        null=True,
-        related_name="admin_profiles",
-        verbose_name=_("Uprawnienia"), help_text=_("Uprawnienia"))
-
+class AdminProfile(BaseProfile):
     def __str__(self):
-        return f"Admin: {self.first_name} {self.last_name}"
+        return f"Admin: {self.user}"
 
-    def __repr__(self):
-        return f'<AdminProfile(id={self.id}, first_name={self.full_name}, is_active={self.is_active})>'
+    def save(self, *args, **kwargs):
+        if ClientProfile.objects.filter(user=self.user).exists() or ManagerProfile.objects.filter(user=self.user).exists():
+            raise ValidationError(_("Użytkownik może mieć tylko jeden profil (klient, menedżer lub administrator)."))
+        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = _("Administrator")
         verbose_name_plural = _("Administratorzy")
         db_table = "admins"
+
+
+class UserPermissions(BaseModel):
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.PROTECT,
+        related_name="user_to_permissions",
+        verbose_name=_("Użytkownik"), help_text=_("Użytkownik")
+    )
+    permission = models.ForeignKey(
+        CustomPermission,
+        on_delete=models.PROTECT,
+        null=True,
+        related_name="users",
+        verbose_name=_("Uprawnienia"), help_text=_("Uprawnienia"))
+
+    def __str__(self):
+        return f"UserPermission: {self.user} - {self.permission}"
+
+    def __repr__(self):
+        return f'<UserPermission(id={self.id}, user={self.user}, permission={self.permission})>'
+
+    class Meta:
+        verbose_name = _("Uprawnienie użytkownika")
+        verbose_name_plural = _("Uprawniania użytkowników")
+        db_table = "user_permissions"
+        constraints = [
+            UniqueConstraint(
+                name="unique_user_permission",
+                fields=["user", "permission"],
+            )
+        ]

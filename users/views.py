@@ -1,12 +1,14 @@
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, authenticate, login
 from django.core.mail import send_mail
+from django.middleware.csrf import get_token
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_protect, csrf_exempt
 
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.urls import reverse
 from django.shortcuts import get_object_or_404
+from django_ratelimit.decorators import ratelimit
 
 from django.conf import settings
 from .tokens import account_activation_token
@@ -14,7 +16,7 @@ from .tokens import account_activation_token
 
 User = get_user_model()
 
-@csrf_exempt
+@ratelimit(key='ip', rate='1/m', method='POST', block=True)  # Limit to 5 requests per minute per IP
 def register_user(request):
     if request.method == 'POST':
         email = request.POST['email']
@@ -38,7 +40,35 @@ def register_user(request):
     return HttpResponse('Register via POST request')
 
 
-@csrf_exempt
+@csrf_protect
+@ratelimit(key='ip', rate='5/m', method='POST', block=True)  # Limit to 5 requests per minute per IP
+def login_user(request):
+    if request.method == 'POST':
+        email = request.POST.get('email')
+        password = request.POST.get('password')
+        csrf_token = request.META.get('HTTP_X_CSRFTOKEN')
+
+        # Check if CSRF token is valid
+        if csrf_token is None or csrf_token != get_token(request):
+            return JsonResponse({'error': 'CSRF token is missing or incorrect.'}, status=403)
+
+
+        # Authenticate the user
+        user = authenticate(request, email=email, password=password)
+
+        if user is not None:
+            if user.is_active:
+                # Log in the user
+                login(request, user)
+                return JsonResponse({'message': 'Login successful'})
+            else:
+                return JsonResponse({'error': 'Account is inactive. Please activate your account.'}, status=403)
+        else:
+            return JsonResponse({'error': 'Invalid email or password'}, status=400)
+
+    return JsonResponse({'error': 'Login via POST request only'}, status=405)
+
+
 def activate_user(request, uidb64, token):
     try:
         uid = force_str(urlsafe_base64_decode(uidb64))
@@ -52,3 +82,9 @@ def activate_user(request, uidb64, token):
         return HttpResponse('Thank you for your email confirmation.')
     else:
         return HttpResponse('Activation link is invalid!')
+
+
+@csrf_exempt
+def get_csrf_token_view(request):
+    token = get_token(request)
+    return JsonResponse({'csrfToken': token})

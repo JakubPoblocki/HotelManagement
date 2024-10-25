@@ -10,7 +10,7 @@ from dicts.models import BaseModel
 from dicts.validators import validate_phone_number
 from hotel_management.consts import RESERVATION_STATUSES, ROOM_TYPES
 from hotel_management.managers import ReservationManager
-from users.models import ClientProfile, ManagerProfile
+from users.models import ClientProfile, ManagerProfile, CustomUser
 
 
 class Hotel(BaseModel):
@@ -132,7 +132,7 @@ class Reservation(BaseModel):
         related_name='reservations',
         verbose_name=_("Pokój"), help_text=_("Pokój na rezerwacji"))
     guest = models.ForeignKey(
-        ClientProfile,
+        CustomUser,
         on_delete=models.PROTECT,
         related_name='reservations',
         verbose_name=_("Gość"), help_text=_("Gość na rezerwacji")
@@ -175,7 +175,6 @@ class Reservation(BaseModel):
 
     def clean(self):
         actual_date = timezone.now().date()
-        print(f'self.check_in_date: {self.check_in_date}, self.check_out_date: {self.check_out_date}, self.room: {self.room}')
 
         # check if all required fields are set
         if not self.check_in_date or not self.check_out_date or not self.room:
@@ -197,6 +196,10 @@ class Reservation(BaseModel):
         if not self.room.is_available_in_range(self.check_in_date, self.check_out_date):
             raise ValidationError(_("The room is not available for the selected date range."))
 
+        # check if guest is a client account
+        if not self.guest.is_client:
+            raise ValidationError({"guest": _("Choosen user is not a client account")})
+
 
     class Meta:
         ordering = ["-check_in_date", "-check_out_date"]
@@ -211,7 +214,7 @@ class HotelManagerAssignment(BaseModel):
     Hotel-Manager assignment object
     """
     manager = models.ForeignKey(
-        ManagerProfile,
+        CustomUser,
         on_delete=models.CASCADE,
         related_name="managed_hotels",
         verbose_name=_("Menadżer"), help_text=_("Menadżer hotelu"))
@@ -222,7 +225,8 @@ class HotelManagerAssignment(BaseModel):
         verbose_name=_("Hotel"), help_text=_("Hotel podlegający pod menadżera"))
 
     def clean(self):
-        cleaned_data = super().clean()
+        if not self.manager.is_manager:
+            raise ValidationError({"manager": _("Provided user is not a manager")})
 
     def __str__(self):
         return f"HotelManagerRelation {self.manager} -> {self.hotel}"

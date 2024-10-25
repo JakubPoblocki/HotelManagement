@@ -3,6 +3,7 @@ from django.urls import reverse
 from django.utils.html import format_html
 
 from hotel_management.models import Hotel, Room, Reservation, HotelManagerAssignment
+from users.models import CustomUser
 
 
 @admin.register(HotelManagerAssignment)
@@ -74,4 +75,11 @@ class ReservationAdmin(admin.ModelAdmin):
     @admin.display(description='Imię i nazwisko gościa')
     def guest_full_name(self, obj):
         return f'{obj.guest.first_name} {obj.guest.last_name}'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Filter the queryset for the room field
+        print('fields', self.fields)
+        self.fields['guest'].queryset = CustomUser.objects.filter(clientprofile__isnull=False)
+
 

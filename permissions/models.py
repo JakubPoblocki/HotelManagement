@@ -49,7 +49,7 @@ class CustomPermission(BaseModel):
         return cls.active_objects.filter(name=name)
 
     def __str__(self):
-        return f"CustomPermission {self.code}"
+        return f"{self.code} / {self.perms_to_str()}"
 
     def __repr__(self):
         return f"<CustomPermission(pk={self.pk}, code={self.code})>"
